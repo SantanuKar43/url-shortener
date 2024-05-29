@@ -8,8 +8,6 @@ TODOS
    3. or delete the url and save it at the same time
 2. Rate limiting -
    1. protect the server and the database
-3. Request validations -
-   1. set url max length/size
 
 How to start the url-shortener application
 ---
