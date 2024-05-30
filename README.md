@@ -4,6 +4,7 @@ TODOS
 ---
 1. Rate limiting -
    1. protect the server and the database
+   2. metrics
 
 How to start the url-shortener application
 ---
