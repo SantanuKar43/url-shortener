@@ -1,9 +1,8 @@
 package santanu.core.storage.impl;
 
 import com.google.inject.Inject;
-import org.apache.commons.lang3.StringUtils;
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.JedisPool;
+import org.redisson.api.RBucket;
+import org.redisson.api.RedissonClient;
 import santanu.core.entity.ShortUrl;
 import santanu.core.storage.UrlStore;
 
@@ -13,18 +12,21 @@ import java.util.Optional;
 public class RedisStore implements UrlStore {
     private static final String ID_PREFIX = "URL_ID_";
     private static final String URL_PREFIX = "URL_FULL_";
-    private final JedisPool jedisPool;
+    private final RedissonClient redisson;
 
     @Inject
-    public RedisStore(JedisPool jedisPool) {
-        this.jedisPool = jedisPool;
+    public RedisStore(RedissonClient redisson) {
+        this.redisson = redisson;
     }
 
     @Override
     public Optional<ShortUrl> get(String id) {
-        try (Jedis jedis = jedisPool.getResource()) {
-            String url = jedis.get(formatKey(id, ID_PREFIX));
-            if (StringUtils.isBlank(url)) return Optional.empty();
+        try {
+            RBucket<String> bucket = redisson.getBucket(formatKey(id, ID_PREFIX));
+            if (!bucket.isExists()) {
+                return Optional.empty();
+            }
+            String url = bucket.get();
             return Optional.of(new ShortUrl(id, new URI(url)));
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -33,9 +35,12 @@ public class RedisStore implements UrlStore {
 
     @Override
     public Optional<ShortUrl> getByUrl(String url) {
-        try (Jedis jedis = jedisPool.getResource()) {
-            String id = jedis.get(formatKey(url, URL_PREFIX));
-            if (StringUtils.isBlank(id)) return Optional.empty();
+        try {
+            RBucket<String> bucket = redisson.getBucket(formatKey(url, URL_PREFIX));
+            if (!bucket.isExists()) {
+                return Optional.empty();
+            }
+            String id = bucket.get();
             return Optional.of(new ShortUrl(id, new URI(url)));
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -44,23 +49,31 @@ public class RedisStore implements UrlStore {
 
     @Override
     public ShortUrl save(ShortUrl shortUrl) {
-        try (Jedis jedis = jedisPool.getResource()) {
-            jedis.set(formatKey(shortUrl.getId(), ID_PREFIX), shortUrl.getExpandedUrl().toString());
-            jedis.set(formatKey(shortUrl.getExpandedUrl().toString(), URL_PREFIX), shortUrl.getId());
+        try {
+            RBucket<Object> idBucket = redisson.getBucket(formatKey(shortUrl.getId(), ID_PREFIX));
+            idBucket.set(shortUrl.getExpandedUrl().toString());
+
+            RBucket<Object> urlBucket = redisson.getBucket(formatKey(shortUrl.getExpandedUrl().toString(), URL_PREFIX));
+            urlBucket.set(shortUrl.getId());
             return shortUrl;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 
     @Override
     public boolean delete(String id) {
-        try (Jedis jedis = jedisPool.getResource()) {
+        try {
             Optional<ShortUrl> shortUrl = get(id);
             if (shortUrl.isPresent()) {
-                jedis.del(formatKey(shortUrl.get().getId(), ID_PREFIX));
-                jedis.del(formatKey(shortUrl.get().getExpandedUrl().toString(), URL_PREFIX));
+                redisson.getBucket(formatKey(shortUrl.get().getId(), ID_PREFIX)).delete();
+                redisson.getBucket(formatKey(shortUrl.get().getExpandedUrl().toString(), URL_PREFIX)).delete();
                 return true;
+            } else {
+                return false;
             }
-            return false;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 
