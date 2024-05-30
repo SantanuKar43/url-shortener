@@ -103,4 +103,8 @@ public class UrlService {
         }
     }
 
+    public Optional<ShortUrl> get(String id) {
+        if (!idGenerator.isValid(id)) return Optional.empty();
+        return urlStore.get(id);
+    }
 }
