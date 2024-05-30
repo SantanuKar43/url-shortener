@@ -92,7 +92,15 @@ public class UrlService {
     }
 
     public boolean deleteShortUrl(String id) {
-        return urlStore.delete(id);
+        Optional<Lock> idLock = lockService.acquireLock(id);
+        if (idLock.isEmpty()) {
+            throw new RuntimeException("Unable to delete, please try again later.");
+        }
+        try {
+            return urlStore.delete(id);
+        } finally {
+            idLock.get().unlock();
+        }
     }
 
 }
