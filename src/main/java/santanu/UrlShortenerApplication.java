@@ -5,7 +5,6 @@ import com.google.inject.Injector;
 import io.dropwizard.core.Application;
 import io.dropwizard.core.setup.Bootstrap;
 import io.dropwizard.core.setup.Environment;
-import redis.clients.jedis.JedisPool;
 import santanu.bootstrap.UrlShortenerModule;
 import santanu.health.BasicHealthCheck;
 import santanu.health.RedisHealth;

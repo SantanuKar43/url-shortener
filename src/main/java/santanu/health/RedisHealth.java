@@ -3,22 +3,23 @@ package santanu.health;
 import com.codahale.metrics.health.HealthCheck;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.JedisPool;
+import org.redisson.api.RedissonClient;
+import org.redisson.api.redisnode.RedisNodes;
 
 @Singleton
 public class RedisHealth extends HealthCheck {
-    private final JedisPool jedisPool;
+    private final RedissonClient redissonClient;
 
     @Inject
-    public RedisHealth(JedisPool jedisPool) {
-        this.jedisPool = jedisPool;
+    public RedisHealth(RedissonClient redissonClient) {
+        this.redissonClient = redissonClient;
     }
 
     @Override
-    protected Result check() throws Exception {
-        try (Jedis jedis = jedisPool.getResource()) {
-            return jedis.isConnected() ? Result.healthy("OK") : Result.unhealthy("redis connection failed");
+    protected Result check() {
+        try {
+            return redissonClient.getRedisNodes(RedisNodes.SINGLE).pingAll() ?
+                    Result.healthy("OK") : Result.unhealthy("redis connection failed");
         } catch (Exception e) {
             return Result.unhealthy("redis connection failed");
         }
